@@ -19,7 +19,17 @@ As discussed in class, the main challenge with a problem like this is how to dis
 ## Resources
 We’ll use the GHC clusters to develop and test the code for this project.
 
-We’re planning to use pthreads to implement our parallelism.
+We’re planning to use OpenMP to parallelize the program.
+
+## Algorithm
+
+For every iteration, create a parallel for loop indexing over number of threads. Within each thread:
+1. Decide on a partition of the tree to claim, mark it as claimed somehow.
+2. Calculate the forces on each particle in its partition.
+3. Using the force on this particle and the "time" the iteration takes, calculate a new position.
+4. Add the updated particle position to a new tree for next iteration.
+
+So for every iteration, we construct a new tree out of the updated particle positions, and we are only READING the old positions.
 
 ## Goals and Deliverables
 75%: We will implement a working, parallel solution for our N-bodies problem using a Barnes-Hut type algorithm
