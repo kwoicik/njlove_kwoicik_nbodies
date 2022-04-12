@@ -40,11 +40,11 @@ So for every iteration, we construct a new tree out of the updated particle posi
 
 ## Milestone
 
-Thus far, we have a fully operational input file parser which takes in a text file containing information about bodies and uses Barnes-Hut to create a tree that can then be further parsed and modified by our algorithm. 
+Thus far, we have a fully operational input file parser which takes in a text file containing information about bodies and uses Barnes-Hut to create a tree that can then be further parsed and modified by our algorithm. Much of the basic logic is finished (our implementation of Barnes-Hut trees and helpers to manipulate them, functions for calculating force between two bodies, etc.) but we haven't been able to finish assembling it into the overall simulation yet. This happened due to a combination of us realizing we needed more utilities than we thought (like the visualizer to check that our results converge) and mixing up the due date with the Exam 2 date.
 
-Overall, we haven't quite hit our 75% deliverable, but most of the work left towards it is debugging and we don't believe that will set us back too much. In short, we still think we will be able to be at our 100% goal by the end of the semester.
+Overall, we haven't hit our 75% deliverable, but we don't believe that will set us back too much. In short, we are still confident we will be able to be at our 100% goal by the end of the semester.
 
-During the poster session, we plan to have a live demo of our visualizer displaying our data. Provided that the code runs fast enough, we will compute it live too, but if all else fails, we will just visualize an aleady computed nbodies run throughout all of its iterations until we hit convergence. This visualization will be plotted in matplotlib via python and will display where all of the bodies are within our bounding box. 
+During the poster session, we plan to have a live demo of a visualizer program displaying our data. Provided that the code runs fast enough, we will compute it live too, but if all else fails, we will just visualize an aleady computed nbodies run throughout all of its iterations until we hit convergence. This visualization will be plotted in matplotlib via python and will display where all of the bodies are within our bounding box. 
 
 We don't have many concerns at this time, if anything, we expect the hard part should come when implementing semi-static workload assignment or "cost zones" if we get that far. Overall, we're feeling good!
 
