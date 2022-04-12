@@ -38,6 +38,16 @@ So for every iteration, we construct a new tree out of the updated particle posi
 
 125%: On top of the algorithm for balancing the workload our solution will also optimize for locality using a method similar to the “cost zones” we discussed in lecture
 
+## Milestone
+
+Thus far, we have a fully operational input file parser which takes in a text file containing information about bodies and uses Barnes-Hut to create a tree that can then be further parsed and modified by our algorithm. 
+
+Overall, we haven't quite hit our 75% deliverable, but most of the work left towards it is debugging and we don't believe that will set us back too much. In short, we still think we will be able to be at our 100% goal by the end of the semester.
+
+During the poster session, we plan to have a live demo of our visualizer displaying our data. Provided that the code runs fast enough, we will compute it live too, but if all else fails, we will just visualize an aleady computed nbodies run throughout all of its iterations until we hit convergence. This visualization will be plotted in matplotlib via python and will display where all of the bodies are within our bounding box. 
+
+We don't have many concerns at this time, if anything, we expect the hard part should come when implementing semi-static workload assignment or "cost zones" if we get that far. Overall, we're feeling good!
+
 ## Schedule
 3/21/22-3/23/22: create project proposal
 
@@ -47,10 +57,12 @@ So for every iteration, we construct a new tree out of the updated particle posi
 
 4/11/22 **(Checkpoint)**: Be at 75% deliverable
 
-4/12/22-4/17/22: start brainstorming on 100% deliverable and have code outline created
+4/12/22-4/17/22: (kelly) finish writing the output file writing code as well as the visualizer, (nathan) complete all the physics code and finish piecing together the parallel portion of the code
 
-4/18/22-4/24/22: code and debug 100% deliverable
+4/18/22-4/19/22: (kelly and nathan) brainstorm how to implement semi-static assignment on top of the pre-existing parallel code
 
-4/25/22-4/28/22: Be at 100% deliverable and complete writeup
+4/20/22-4/25/22: (kelly and nathan) finish implementing the semi-static assignment, (kelly) start compiling datasets to display for the demo
+
+4/26/22-4/28/22: (kelly and nathan) finish writing the deliverable for the project, (kelly) get the demo visualizations saved
 
 4/29/22: Project due
