@@ -97,12 +97,12 @@ void splitTree(node_t* tree)
     }
 
     // Do the actual splitting
-    double midx = tree->left + ((tree->right - tree->left) / 2);
-    double midy = tree-> bot + ((tree->top - tree->bot) / 2);
-    tree->nw = newTree(tree->left, midx, midy + 1, tree->top);
-    tree->ne = newTree(midx + 1, tree->right, midy + 1, tree->top);
+    double midx = (tree->right + tree->left) / 2;
+    double midy = (tree->top + tree->bot) / 2;
+    tree->nw = newTree(tree->left, midx, midy, tree->top);
+    tree->ne = newTree(midx, tree->right, midy, tree->top);
     tree->sw = newTree(tree->left, midx, tree->bot, midy);
-    tree->se = newTree(midx + 1, tree-> right, tree->bot, midy);
+    tree->se = newTree(midx, tree-> right, tree->bot, midy);
 
     // Handle the moving of a particle if we had one
     // We always should, but I'll check just in case
@@ -123,6 +123,10 @@ void splitTree(node_t* tree)
 void insertBody(node_t* tree, double x, double y, double vx,
         double vy, double w, int c, short id)
 {
+    /*
+    printf("Inserting into tree: %lf %lf %lf %lf\n",
+            tree->left, tree->right, tree->bot, tree->top);
+            */
     // Base case; empty leaf node, insert here
     if (isEmpty(tree))
     {
@@ -263,9 +267,10 @@ short netForce(node_t* tree, int id, double x, double y, double r0, double u,
 }
 
 // Parses the input file and creates the tree
-// TODO: should probably parallelize this in the final version
-void parse_input_file(FILE* input, node_t** res, double* dimx, double* dimy, int* nBodies)
+void parse_input_file(const char* inputFilename, node_t** res, double* dimx,
+        double* dimy, int* nBodies)
 {
+    FILE* input = fopen(inputFilename, "r");
     fscanf(input, "%lf %lf\n", dimx, dimy);
     fscanf(input, "%d\n", nBodies);
 
@@ -283,6 +288,28 @@ void parse_input_file(FILE* input, node_t** res, double* dimx, double* dimy, int
         fscanf(input, "%lf %lf %lf %lf %lf\n", &x, &y, &vx, &vy, &w);
         insertBody(*res, x, y, vx, vy, w, 1, i);
     }
+
+    fclose(input);
+}
+
+// Parses the input file and copies the bodies into some arrays
+void parseCopyInput(const char* inputFilename, double* xcopy, double* ycopy,
+        double* vxcopy, double* vycopy, double* wcopy)
+{
+    double dimx, dimy;
+    int nBodies;
+    FILE* input = fopen(inputFilename, "r");
+    fscanf(input, "%lf %lf\n", &dimx, &dimy);
+    fscanf(input, "%d\n", &nBodies);
+
+    // place all bodies into tree
+    for (int i = 0; i < nBodies; i++)
+    {
+        fscanf(input, "%lf %lf %lf %lf %lf\n", &xcopy[i], &ycopy[i],
+                &vxcopy[i], &vycopy[i], &wcopy[i]);
+    }
+
+    fclose(input);
 }
 
 // Writes the positions of particles to the given output file
@@ -346,19 +373,26 @@ static void show_help(const char *program_path) {
 void runSimSequential(const char* inputFilename, const char* outputFilename, int numIters, double cutoffRatio,
         double morseConst, double eqbmRadius, double alpha, double stepSize)
 {
-    // Open input/output files
-    FILE* input = fopen(inputFilename, "r");
-    FILE* output = fopen(outputFilename, "w");
-
     // Setup initial state from input file
     node_t* tree;
     double dimx, dimy;
     int nBodies;
-    parse_input_file(input, &tree, &dimx, &dimy, &nBodies);
+    parse_input_file(inputFilename, &tree, &dimx, &dimy, &nBodies);
+
     double xmin = - (dimx / 2);
     double xmax = dimx / 2;
     double ymin = - (dimy / 2);
     double ymax = dimy / 2;
+
+    double* xs = (double*) calloc(sizeof(double), nBodies);
+    double* ys = (double*) calloc(sizeof(double), nBodies);
+    double* vxs = (double*) calloc(sizeof(double), nBodies);
+    double* vys = (double*) calloc(sizeof(double), nBodies);
+    double* ws = (double*) calloc(sizeof(double), nBodies);
+    parseCopyInput(inputFilename, xs, ys, vxs, vys, ws);
+
+    // Open output file
+    FILE* output = fopen(outputFilename, "w");
 
     // Add sim info to top of output file
     fprintf(output, "%lf %lf\n", dimx, dimy);
@@ -374,17 +408,18 @@ void runSimSequential(const char* inputFilename, const char* outputFilename, int
         for (int body = 0; body < nBodies; body++)
         {
             // Find current position and stuff
-            node_t* cur = findBody(tree, body);
-            if (cur == NULL)
-            {
-                printf("Got NULL trying to find body: %d\n", body);
-            }
+            double curx = xs[body];
+            double cury = ys[body];
+            double curvx = vxs[body];
+            double curvy = vys[body];
+            double curw = ws[body];
+
             double xf, yf, dvx, dvy, dx, dy;
             xf = 0;
             yf = 0;
 
             // Calculate force based on all other particles
-            short c = netForce(tree, body, cur->total.x, cur->total.y, eqbmRadius,
+            short c = netForce(tree, body, curx, cury, eqbmRadius,
                     morseConst, alpha, cutoffRatio, &xf, &yf);
 
             // Update velocity assuming constant force during timestep
@@ -392,19 +427,26 @@ void runSimSequential(const char* inputFilename, const char* outputFilename, int
             dvy = yf * stepSize;
 
             // Update position based on average of old and new velocity
-            dx = (cur->total.vx + (dvx / 2)) * stepSize;
-            dy = (cur->total.vy + (dvy / 2)) * stepSize;
+            dx = (curvx + (dvx / 2)) * stepSize;
+            dy = (curvy + (dvy / 2)) * stepSize;
 
-            double newx = cur->total.x + dx;
+            double newx = curx + dx;
             newx = (newx > xmax) ? newx - dimx : newx;
             newx = (newx < xmin) ? newx + dimx : newx;
-            double newy = cur->total.y + dy;
+            double newy = cury + dy;
             newy = (newy > ymax) ? newy - dimy : newy;
             newy = (newy < ymin) ? newy + dimy : newy;
 
             // We know the changes, insert into new tree
-            insertBody(nextTree, newx, newy, cur->total.vx + dvx,
-                    cur->total.vy + dvy, cur->total.w, c, body);
+            insertBody(nextTree, newx, newy, curvx + dvx,
+                    curvy + dvy, curw, c, body);
+
+            // Update our arrays
+            xs[body] = newx;
+            ys[body] = newy;
+            vxs[body] = curvx + dvx;
+            vys[body] = curvy + dvy;
+            ws[body] = curw;
         }
 
         freeTree(tree);
@@ -412,6 +454,13 @@ void runSimSequential(const char* inputFilename, const char* outputFilename, int
 
         write_output(output, tree, nBodies);
     }
+
+    freeTree(tree);
+    free(xs);
+    free(ys);
+    free(vxs);
+    free(vys);
+    fclose(output);
 }
 
 // Runs the simulation in parallel where each thread computes the
@@ -420,19 +469,32 @@ void runSimSequential(const char* inputFilename, const char* outputFilename, int
 void runSimParallel(const char* inputFilename, const char* outputFilename, int numThreads, int numIters,
         double cutoffRatio, double morseConst, double eqbmRadius, double alpha, double stepSize)
 {
-    // Open input/output files
-    FILE* input = fopen(inputFilename, "r");
-    FILE* output = fopen(outputFilename, "w");
+    // Stuff to time the threads
+    using namespace std::chrono;
+    typedef std::chrono::high_resolution_clock Clock;
+    typedef std::chrono::duration<double> dsec;
+    double threadTimes[numThreads];
+
 
     // Setup initial state from input file
     node_t* tree;
     double dimx, dimy;
     int nBodies;
-    parse_input_file(input, &tree, &dimx, &dimy, &nBodies);
+    parse_input_file(inputFilename, &tree, &dimx, &dimy, &nBodies);
     double xmin = - (dimx / 2);
     double xmax = dimx / 2;
     double ymin = - (dimy / 2);
     double ymax = dimy / 2;
+
+    double* xs = (double*) calloc(sizeof(double), nBodies);
+    double* ys = (double*) calloc(sizeof(double), nBodies);
+    double* vxs = (double*) calloc(sizeof(double), nBodies);
+    double* vys = (double*) calloc(sizeof(double), nBodies);
+    double* ws = (double*) calloc(sizeof(double), nBodies);
+    parseCopyInput(inputFilename, xs, ys, vxs, vys, ws);
+
+    // Open output file
+    FILE* output = fopen(outputFilename, "w");
 
     // Add sim info to top of output file
     fprintf(output, "%lf %lf\n", dimx, dimy);
@@ -450,20 +512,27 @@ void runSimParallel(const char* inputFilename, const char* outputFilename, int n
         #pragma omp parallel for default(shared) private(thread) schedule(dynamic)
         for (thread = 0; thread < numThreads; thread++)
         {
+            if (iter == 0)
+            {
+                threadTimes[thread] = 0;
+            }
+            auto start = Clock::now();
+
             for (int body = thread; body < nBodies; body += numThreads)
             {
                 // Find current position and stuff
-                node_t* cur = findBody(tree, body);
-                if (cur == NULL)
-                {
-                    printf("Got NULL trying to find body: %d\n", body);
-                }
+                double curx = xs[body];
+                double cury = ys[body];
+                double curvx = vxs[body];
+                double curvy = vys[body];
+                double curw = ws[body];
+
                 double xf, yf, dvx, dvy, dx, dy;
                 xf = 0;
                 yf = 0;
 
                 // Calculate force based on all other particles
-                short c = netForce(tree, body, cur->total.x, cur->total.y, eqbmRadius,
+                short c = netForce(tree, body, curx, cury, eqbmRadius,
                         morseConst, alpha, cutoffRatio, &xf, &yf);
 
                 // Update velocity assuming constant force during timestep
@@ -471,23 +540,32 @@ void runSimParallel(const char* inputFilename, const char* outputFilename, int n
                 dvy = yf * stepSize;
 
                 // Update position based on average of old and new velocity
-                dx = (cur->total.vx + (dvx / 2)) * stepSize;
-                dy = (cur->total.vy + (dvy / 2)) * stepSize;
+                dx = (curvx + (dvx / 2)) * stepSize;
+                dy = (curvy + (dvy / 2)) * stepSize;
 
-                double newx = cur->total.x + dx;
+                double newx = curx + dx;
                 newx = (newx > xmax) ? newx - dimx : newx;
                 newx = (newx < xmin) ? newx + dimx : newx;
-                double newy = cur->total.y + dy;
+                double newy = cury + dy;
                 newy = (newy > ymax) ? newy - dimy : newy;
                 newy = (newy < ymin) ? newy + dimy : newy;
+
+                // Update our arrays
+                xs[body] = newx;
+                ys[body] = newy;
+                vxs[body] = curvx + dvx;
+                vys[body] = curvy + dvy;
+                ws[body] = curw;
 
                 // We know the changes, insert into new tree
                 #pragma omp critical
                 {
-                    insertBody(nextTree, newx, newy, cur->total.vx + dvx,
-                            cur->total.vy + dvy, cur->total.w, c, body);
+                    insertBody(nextTree, newx, newy, curvx + dvx,
+                            curvy + dvy, curw, c, body);
                 }
             }
+
+            threadTimes[thread] += duration_cast<dsec>(Clock::now() - start).count();
         }
 
         freeTree(tree);
@@ -496,6 +574,18 @@ void runSimParallel(const char* inputFilename, const char* outputFilename, int n
         write_output(output, tree, nBodies);
     }
 
+    // Report workload balancing information
+    for (int i = 0; i < numThreads; i++)
+    {
+        printf("Elapsed time for thread %d: %lf\n", i, threadTimes[i]);
+    }
+
+    freeTree(tree);
+    free(xs);
+    free(ys);
+    free(vxs);
+    free(vys);
+    fclose(output);
 }
 
 // Extra helpers for partitioning trees by cost, needed for the last version
@@ -650,19 +740,24 @@ void computeAll(partition_t* p, node_t* oldTree, node_t* newTree, short thread, 
 void runSimCosts(const char* inputFilename, const char* outputFilename, int numThreads, int numIters,
         double cutoffRatio, double morseConst, double eqbmRadius, double alpha, double stepSize)
 {
-    // Open input/output files
-    FILE* input = fopen(inputFilename, "r");
-    FILE* output = fopen(outputFilename, "w");
+    // Stuff to time the threads
+    using namespace std::chrono;
+    typedef std::chrono::high_resolution_clock Clock;
+    typedef std::chrono::duration<double> dsec;
+    double threadTimes[numThreads];
 
     // Setup initial state from input file
     node_t* tree;
     double dimx, dimy;
     int nBodies;
-    parse_input_file(input, &tree, &dimx, &dimy, &nBodies);
+    parse_input_file(inputFilename, &tree, &dimx, &dimy, &nBodies);
     double xmin = - (dimx / 2);
     double xmax = dimx / 2;
     double ymin = - (dimy / 2);
     double ymax = dimy / 2;
+
+    // Open input/output files
+    FILE* output = fopen(outputFilename, "w");
 
     // Add sim info to top of output file
     fprintf(output, "%lf %lf\n", dimx, dimy);
@@ -680,6 +775,12 @@ void runSimCosts(const char* inputFilename, const char* outputFilename, int numT
         #pragma omp parallel for default(shared) private(thread) schedule(dynamic)
         for (thread = 0; thread < numThreads; thread++)
         {
+            if (iter == 0)
+            {
+                threadTimes[thread] = 0;
+            }
+            auto start = Clock::now();
+
             // Claim partitions of (hopefully) equal cost
             partition_t* part = newPartition();
             int limit = (tree->total.c / numThreads) + 1;
@@ -694,6 +795,8 @@ void runSimCosts(const char* inputFilename, const char* outputFilename, int numT
                     alpha, cutoffRatio, stepSize, dimx, dimy);
 
             partitionFree(part);
+
+            threadTimes[thread] += duration_cast<dsec>(Clock::now() - start).count();
         }
 
         // Clean up any stragglers
@@ -708,6 +811,15 @@ void runSimCosts(const char* inputFilename, const char* outputFilename, int numT
 
         write_output(output, tree, nBodies);
     }
+
+    // Report workload balancing information
+    for (int i = 0; i < numThreads; i++)
+    {
+        printf("Elapsed time for thread %d: %lf\n", i, threadTimes[i]);
+    }
+
+    freeTree(tree);
+    fclose(output);
 }
 
 /*

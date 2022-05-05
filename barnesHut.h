@@ -52,10 +52,10 @@ typedef struct
 typedef struct node
 {
     body_t total;
-    int left;
-    int right;
-    int top;
-    int bot;
+    double left;
+    double right;
+    double top;
+    double bot;
     struct node* nw;
     struct node* ne;
     struct node* se;
