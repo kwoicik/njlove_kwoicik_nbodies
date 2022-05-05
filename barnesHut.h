@@ -33,10 +33,17 @@ typedef struct
     // mass, charge, whatever
     double w;
 
+    // Where "c" stands for cost concerning the number of nodes this one has
+    // interacted with in the previous iteration of the simulation
+    int c;
+
     // Each individual body will need to have a unique ID so we can be sure
     // we don't calculate its interaction with itself. Conglomerates will
     // have an id of -1
-    int id;
+    short id;
+
+    // Indicates whether this part of the tree has been "claimed" by a thread
+    short claimed;
 } body_t;
 
 // Each node will have up to 4 children. If one of them is NULL then
@@ -54,5 +61,17 @@ typedef struct node
     struct node* se;
     struct node* sw;
 } node_t;
+
+// Partitions will just be singly-linked lists
+typedef struct link
+{
+    node_t* subtree;
+    struct link* next;
+} link_t;
+
+typedef struct partition
+{
+    link_t* head;
+} partition_t;
 
 #endif
